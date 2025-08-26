@@ -1,5 +1,6 @@
 ﻿@page "/weather"
 @inject HttpClient Http
+@using BlazorApp1.Models
 
 <PageTitle>Weather</PageTitle>
 
@@ -10,6 +11,10 @@
 @if (forecasts == null)
 {
     <p><em>Loading...</em></p>
+}
+else if (errorMessage != null)
+{
+    <p class="text-danger">Error: @errorMessage</p>
 }
 else
 {
@@ -38,20 +43,18 @@ else
 
 @code {
     private WeatherForecast[]? forecasts;
+    private string? errorMessage;
 
     protected override async Task OnInitializedAsync()
     {
-        forecasts = await Http.GetFromJsonAsync<WeatherForecast[]>("sample-data/weather.json");
-    }
-
-    public class WeatherForecast
-    {
-        public DateOnly Date { get; set; }
-
-        public int TemperatureC { get; set; }
-
-        public string? Summary { get; set; }
-
-        public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
+        try
+        {
+            // Call the API - using relative URL since HttpClient base address is configured
+            forecasts = await Http.GetFromJsonAsync<WeatherForecast[]>("WeatherForecast");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load weather data: {ex.Message}";
+        }
     }
 }
