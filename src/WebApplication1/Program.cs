@@ -37,7 +37,8 @@ builder.Services.AddCors(options =>
                 "http://localhost:5210",
                 "http://localhost:9951",
                 "https://localhost:7208",
-                "https://localhost:7209"
+                "https://localhost:7209",
+                "https://witty-mushroom-02c2e7103.1.azurestaticapps.net"
             )
             .AllowAnyHeader()
             .AllowAnyMethod()
