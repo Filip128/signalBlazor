@@ -2,6 +2,7 @@
 @using Microsoft.AspNetCore.SignalR.Client
 @using Microsoft.Extensions.Logging
 @inject NavigationManager Navigation
+@inject BlazorApp1.Services.IConfigurationService ConfigService
 @implements IAsyncDisposable
 
 <h1>Wiadomości w czasie rzeczywistym</h1>
@@ -59,8 +60,10 @@
             connectionStatusClass = "badge-warning";
             StateHasChanged();
 
+            var signalRUrl = await ConfigService.GetSignalRHubUrlAsync();
+
             hubConnection = new HubConnectionBuilder()
-                .WithUrl("http://localhost:5236/messagehub")
+                .WithUrl(signalRUrl)
                 .ConfigureLogging(logging =>
                 {
                     logging.SetMinimumLevel(LogLevel.Debug);

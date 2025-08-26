@@ -1,5 +1,6 @@
 ﻿@page "/weather"
 @inject HttpClient Http
+@inject BlazorApp1.Services.IConfigurationService ConfigService
 @using BlazorApp1.Models
 
 <PageTitle>Weather</PageTitle>
@@ -49,8 +50,9 @@ else
     {
         try
         {
-            // Call the API - using relative URL since HttpClient base address is configured
-            forecasts = await Http.GetFromJsonAsync<WeatherForecast[]>("WeatherForecast");
+            var apiBaseUrl = await ConfigService.GetApiBaseUrlAsync();
+            var weatherUrl = $"{apiBaseUrl.TrimEnd('/')}/WeatherForecast";
+            forecasts = await Http.GetFromJsonAsync<WeatherForecast[]>(weatherUrl);
         }
         catch (Exception ex)
         {
