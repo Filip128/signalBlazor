@@ -1,0 +1,173 @@
+@page "/messages"
+@using Microsoft.AspNetCore.SignalR.Client
+@using Microsoft.Extensions.Logging
+@inject NavigationManager Navigation
+@implements IAsyncDisposable
+
+<h1>Wiadomości w czasie rzeczywistym</h1>
+
+<div class="form-group">
+    <label>
+        Stan połączenia:
+        <span class="badge @connectionStatusClass">@connectionStatus</span>
+    </label>
+</div>
+
+<hr />
+
+<div class="messages-container" style="max-height: 500px; overflow-y: auto; border: 1px solid #ccc; padding: 10px;">
+    @if (messages.Count == 0)
+    {
+        <p><em>Oczekiwanie na wiadomości...</em></p>
+    }
+    else
+    {
+        @foreach (var message in messages)
+        {
+            <div class="message-item" style="margin-bottom: 10px; padding: 8px; background-color: #f8f9fa; border-left: 3px solid #007bff;">
+                @message
+            </div>
+        }
+    }
+</div>
+
+<div style="margin-top: 20px;">
+    <button class="btn btn-success" @onclick="Connect" disabled="@IsConnected">Połącz</button>
+    <button class="btn btn-danger" @onclick="Disconnect" disabled="@(!IsConnected)">Rozłącz</button>
+    <button class="btn btn-warning" @onclick="ClearMessages">Wyczyść wiadomości</button>
+</div>
+
+@code {
+    private HubConnection? hubConnection;
+    private List<string> messages = new();
+    private string connectionStatus = "Rozłączony";
+    private string connectionStatusClass = "badge-danger";
+
+    public bool IsConnected =>
+        hubConnection?.State == HubConnectionState.Connected;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Connect();
+    }
+
+    private async Task Connect()
+    {
+        try
+        {
+            connectionStatus = "Łączenie...";
+            connectionStatusClass = "badge-warning";
+            StateHasChanged();
+
+            hubConnection = new HubConnectionBuilder()
+                .WithUrl("http://localhost:5236/messagehub")
+                .ConfigureLogging(logging =>
+                {
+                    logging.SetMinimumLevel(LogLevel.Debug);
+                })
+                .Build();
+
+            hubConnection.Reconnected += (connectionId) =>
+            {
+                InvokeAsync(() =>
+                {
+                    UpdateConnectionStatus();
+                    StateHasChanged();
+                });
+                return Task.CompletedTask;
+            };
+
+            hubConnection.Reconnecting += (exception) =>
+            {
+                InvokeAsync(() =>
+                {
+                    connectionStatus = "Łączenie...";
+                    connectionStatusClass = "badge-warning";
+                    StateHasChanged();
+                });
+                return Task.CompletedTask;
+            };
+
+            hubConnection.Closed += (exception) =>
+            {
+                InvokeAsync(() =>
+                {
+                    UpdateConnectionStatus();
+                    StateHasChanged();
+                });
+                return Task.CompletedTask;
+            };
+
+            hubConnection.On<string>("ReceiveMessage", (message) =>
+            {
+                InvokeAsync(() =>
+                {
+                    messages.Add(message);
+                    // Keep only last 50 messages
+                    if (messages.Count > 50)
+                    {
+                        messages.RemoveAt(0);
+                    }
+                    StateHasChanged();
+                });
+            });
+
+            await hubConnection.StartAsync();
+            UpdateConnectionStatus();
+        }
+        catch (Exception ex)
+        {
+            connectionStatus = $"Błąd połączenia: {ex.Message}";
+            connectionStatusClass = "badge-danger";
+            
+            // Dodaj więcej szczegółów błędu
+            if (ex.InnerException != null)
+            {
+                connectionStatus += $" | Inner: {ex.InnerException.Message}";
+            }
+            
+            Console.WriteLine($"SignalR Error: {ex}");
+        }
+        
+        StateHasChanged();
+    }
+
+    private async Task Disconnect()
+    {
+        if (hubConnection is not null)
+        {
+            await hubConnection.DisposeAsync();
+            hubConnection = null;
+            UpdateConnectionStatus();
+            StateHasChanged();
+        }
+    }
+
+    private void ClearMessages()
+    {
+        messages.Clear();
+        StateHasChanged();
+    }
+
+    private void UpdateConnectionStatus()
+    {
+        if (IsConnected)
+        {
+            connectionStatus = "Połączony";
+            connectionStatusClass = "badge-success";
+        }
+        else
+        {
+            connectionStatus = "Rozłączony";
+            connectionStatusClass = "badge-danger";
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+}
